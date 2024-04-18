@@ -11,8 +11,22 @@
         <script src="//cdnjs.cloudflare.com/ajax/libs/socket.io/2.4.0/socket.io.min.js"></script>
         <script src="//cdnjs.cloudflare.com/ajax/libs/laravel-echo/1.11.0/echo.common.min.js"></script>
         <link rel="stylesheet" href="{{ asset('style/index.css') }}">
+        <meta name="csrf-token" content="{{ csrf_token() }}">
     </head>
     <body>
+        <div>
+            @if (! auth()->check())
+                @foreach (App\Models\User::get() as $user)
+                <form action="/login/{{ $user->id }}" method="POST">
+                    @csrf
+                    <input type="submit" value="{{ $user->name }}">
+                </form>
+                @endforeach
+            @else
+                <h4>{{ auth()->user()->name }}</h4>
+            @endif
+            <a href="logout">Logout</a>
+        </div>
         <div class="container" id="app">
             <h3 class=" text-center">Messaging</h3>
             <div class="messaging">
@@ -32,22 +46,11 @@
                         </div>
                     </div>
                     <div class="inbox_chat">
-                        <div class="chat_list active_chat">
+                        <div v-for="user in users" class="chat_list active_chat">
                             <div class="chat_people">
                             <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
                             <div class="chat_ib">
-                                <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
-                                <p>Test, which is a new approach to have all solutions
-                                    astrology under one roof.
-                                </p>
-                            </div>
-                            </div>
-                        </div>
-                        <div class="chat_list">
-                            <div class="chat_people">
-                            <div class="chat_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="chat_ib">
-                                <h5>Sunil Rajput <span class="chat_date">Dec 25</span></h5>
+                                <h5>@{{ user.name }}<span class="chat_date">Dec 25</span></h5>
                                 <p>Test, which is a new approach to have all solutions
                                     astrology under one roof.
                                 </p>
@@ -58,56 +61,27 @@
                 </div>
                 <div class="mesgs">
                     <div class="msg_history">
-                        <div class="incoming_msg">
-                            <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="received_msg">
-                            <div class="received_withd_msg">
-                                <p>Test which is a new approach to have all
-                                    solutions
-                                </p>
+                        <div v-for="message in messages">
+                            <div v-if="message.user.id !== id" class="incoming_msg">
+                                <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
+                                <div class="received_msg">
+                                <div class="received_withd_msg">
+                                    <p>@{{ message.message }}</p>
+                                    <span class="time_date"> 11:01 AM    |    June 9</span>
+                                </div>
+                                </div>
+                            </div>
+                            <div v-else class="outgoing_msg">
+                                <div class="sent_msg">
+                                <p>@{{ message.message }}</p>
                                 <span class="time_date"> 11:01 AM    |    June 9</span>
-                            </div>
-                            </div>
-                        </div>
-                        <div class="outgoing_msg">
-                            <div class="sent_msg">
-                            <p>Test which is a new approach to have all
-                                solutions
-                            </p>
-                            <span class="time_date"> 11:01 AM    |    June 9</span>
-                            </div>
-                        </div>
-                        <div class="incoming_msg">
-                            <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="received_msg">
-                            <div class="received_withd_msg">
-                                <p>Test, which is a new approach to have</p>
-                                <span class="time_date"> 11:01 AM    |    Yesterday</span>
-                            </div>
-                            </div>
-                        </div>
-                        <div class="outgoing_msg">
-                            <div class="sent_msg">
-                            <p>Apollo University, Delhi, India Test</p>
-                            <span class="time_date"> 11:01 AM    |    Today</span>
-                            </div>
-                        </div>
-                        <div class="incoming_msg">
-                            <div class="incoming_msg_img"> <img src="https://ptetutorials.com/images/user-profile.png" alt="sunil"> </div>
-                            <div class="received_msg">
-                            <div class="received_withd_msg">
-                                <p>We work directly with our designers and suppliers,
-                                    and sell direct to you, which means quality, exclusive
-                                    products, at a price anyone can afford.
-                                </p>
-                                <span class="time_date"> 11:01 AM    |    Today</span>
-                            </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     <div class="type_msg">
                         <div class="input_msg_write">
-                            <input v-model="message" @keyup.enter="sendMessage" type="text" class="write_msg" placeholder="Type a message" />
+                            <input v-model="message" @keyup.enter="sendMessage" type="text" class="write_msg" placeholder="Type a message" name="message"/>
                             <button @click="sendMessage" class="msg_send_btn" type="button"><i class="fa fa-paper-plane-o" aria-hidden="true"></i></button>
                         </div>
                     </div>
@@ -122,14 +96,31 @@
                 el: "#app",
                 data() {
                     return {
-                        message: ""
+                        id: {{ auth()->id() }},
+                        message: "",
+                        users: [],
+                        messages: [],
                     }
                 },
                 methods: {
                     sendMessage() {
-                        axios.post('/message', {message: this.message})
+                        axios.post('/message', {messages: this.message})
                         this.message = ""
                     }
+                },
+                mounted() {
+                    const echo = new Echo({
+                        broadcaster: "socket.io",
+                        host: window.location.hostname + ':6001'
+                    })
+
+                    echo.join('chat')
+                    .here((users) => {
+                        this.users = users
+                    })
+                    .listen('MessageSent', (event) => {
+                        this.messages.push(event)
+                    });
                 }
             })
         </script>
