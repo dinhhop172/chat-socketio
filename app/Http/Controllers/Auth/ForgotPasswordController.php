@@ -38,6 +38,7 @@ class ForgotPasswordController extends Controller
             'email' => 'required|email',
         ]);
         $template = "xin chao day la link reset password";
+        // Password::sendResetLink(['email'=>request('email')]);
         $user = User::where('email', request('email'))->first();
         PasswordReset::where('email', $user->email)->delete();
         $passwordReset = PasswordReset::create([
@@ -59,6 +60,7 @@ class ForgotPasswordController extends Controller
         if (is_null($token)) {
             return ('token not found33');
         }
+        // return Password::tokenExists(user: $user, token: $data['token']);
 //        if (Carbon::parse($token->created_at)->addMinutes(10)->isPast()) {
 //            $token->update(['status'=>3]);
 //            $token->delete();
@@ -69,6 +71,21 @@ class ForgotPasswordController extends Controller
 
     public function sendResetPut(Request $request, $token)
     {
+        // dd(2);
+        // $this->validate(request(), [
+        //     'token' => ['required', 'string'],
+        //     'email' => ['required', 'email', 'email:rfc', 'exists:users,email'],
+        //     'password' => ['required', 'max:16', 'min:6', 'confirmed'],
+        // ]);
+        // $data = $this->validated();
+        // return Password::reset($data, function (User $user, string $password) {
+        //     $user->forceFill([
+        //         'password' => bcrypt($password)
+        //     ])->setRememberToken(Str::random(60));
+        //     $user->save();
+
+        //     event(new PasswordReset($user));
+        // });
         $token = PasswordReset::where('token', $token)->first();
         if (!($token)) {
             return ('token not found222');
